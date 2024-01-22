@@ -6,6 +6,11 @@
 #include <string.h>
 
 /**
+ * @brief 当前输入的字符串
+ */
+static char *current_input;
+
+/**
  * @brief 为终结符设置种类
  */
 typedef enum {
@@ -28,10 +33,10 @@ struct Token {
 
 /**
  * @brief generate a new Token
- * @param  kind              
- * @param  start             
- * @param  end               
- * @return Token* 
+ * @param  kind
+ * @param  start
+ * @param  end
+ * @return Token*
  */
 static Token *newToken(TokenKind kind, char *start, char *end) {
   Token *tok = calloc(1, sizeof(Token));
@@ -57,11 +62,56 @@ static void error(char *fmt, ...) {
 }
 
 /**
+ * @brief 出错位置
+ * @param  loc
+ * @param  fmt
+ * @param  ap
+ */
+static void verrotAt(char *loc, char *fmt, va_list ap) {
+  fprintf(stderr, "%s\n", current_input);
+  // 获取错误位置
+  int pos = loc - current_input;
+  // 输出错误位置
+  fprintf(stderr, "%*s", pos, "");
+  fprintf(stderr, "^ ");
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+}
+
+/**
+ * @brief 解析错误位置
+ * @param  loc
+ * @param  fmt
+ * @param  ...
+ */
+static void errorAt(char *loc, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  verrotAt(loc, fmt, ap);
+  va_end(ap);
+  exit(1);
+}
+
+/**
+ * @brief token解析错误位置
+ * @param  tok
+ * @param  fmt
+ * @param  ...
+ */
+static void errorTok(Token *tok, char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  verrotAt(tok->loc, fmt, ap);
+  va_end(ap);
+  exit(1);
+}
+
+/**
  * @brief compare Token and str
- * @param  tok               
- * @param  str               
- * @return true 
- * @return false 
+ * @param  tok
+ * @param  str
+ * @return true
+ * @return false
  */
 static bool equal(Token *tok, char *str) {
   // memcmp，比较两个内存区域的内容
@@ -71,9 +121,9 @@ static bool equal(Token *tok, char *str) {
 
 /**
  * @brief skip token if it is expected symbol `-`
- * @param  tok               
- * @param  str               
- * @return Token* 
+ * @param  tok
+ * @param  str
+ * @return Token*
  */
 static Token *skip(Token *tok, char *str) {
   if (!equal(tok, str)) {
@@ -84,12 +134,12 @@ static Token *skip(Token *tok, char *str) {
 
 /**
  * @brief Get the Number object
- * @param  tok               
- * @return int 
+ * @param  tok
+ * @return int
  */
 static int getNumber(Token *tok) {
   if (tok->kind != TK_NUM) {
-    error("expected a number");
+    errorTok(tok, "expected a number");
   }
 
   return tok->val;
@@ -97,10 +147,11 @@ static int getNumber(Token *tok) {
 
 /**
  * @brief 解析过程
- * @param  p                 
- * @return Token* 
+ * @param  p
+ * @return Token*
  */
-static Token *tokenize(char *p) {
+static Token *tokenize() {
+  char *p = current_input;
   Token head = {};
   Token *cur = &head;
   while (*p) {
@@ -125,7 +176,7 @@ static Token *tokenize(char *p) {
       continue;
     }
 
-    error("invalid token： %c", *p);
+    errorAt(p, "invalid token");
   }
 
   // 解析结束
@@ -145,7 +196,8 @@ int main(int Argc, char **Argv) {
   }
 
   // 解析参数
-  Token *tok = tokenize(Argv[1]);
+  current_input = Argv[1];
+  Token *tok = tokenize();
 
   // 声明一个全局main段，同时也是程序入口段
   printf("  .globl main\n");
@@ -169,7 +221,6 @@ int main(int Argc, char **Argv) {
     printf("  addi a0, a0, -%d\n", getNumber(tok));
     tok = tok->next;
   }
-  
 
   // 生成程序结束指令
   printf("  ret\n");
