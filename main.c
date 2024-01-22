@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -127,7 +128,7 @@ static bool equal(Token *tok, char *str) {
  */
 static Token *skip(Token *tok, char *str) {
   if (!equal(tok, str)) {
-    error("expected '%s'", str);
+    errorTok(tok, "expected '%s'", str);
   }
   return tok->next;
 }
@@ -170,7 +171,7 @@ static Token *tokenize() {
     }
 
     // 解析符号
-    if (*p == '+' || *p == '-') {
+    if (ispunct(*p)) {
       cur = cur->next = newToken(TK_RESERVED, p, p + 1);
       ++p;
       continue;
@@ -183,6 +184,203 @@ static Token *tokenize() {
   cur->next = newToken(TK_EOF, p, p);
 
   return head.next;
+}
+
+/* 生成AST（抽象语法树）*/
+
+// AST的节点种类
+typedef enum {
+  ND_ADD, // +
+  ND_SUB, // -
+  ND_MUL, // \*
+  ND_DIV, // /
+  ND_NUM, // 整数
+} NodeKind;
+
+// AST的节点结构体
+typedef struct Node Node;
+struct Node {
+  NodeKind kind; // 节点种类
+  Node *lhs;     // 左子节点
+  Node *rhs;     // 右子节点
+  int val;       // 节点值
+};
+
+/**
+ * @brief create a new Node
+ * @param  kind
+ * @return Node*
+ */
+static Node *newNode(NodeKind kind) {
+  Node *node = calloc(1, sizeof(Node));
+  node->kind = kind;
+  return node;
+}
+
+/**
+ * @brief create a binary Node
+ * @param  kind
+ * @param  lhs
+ * @param  rhs
+ * @return Node*
+ */
+static Node *newBinary(NodeKind kind, Node *lhs, Node *rhs) {
+  Node *node = newNode(kind);
+  node->lhs = lhs;
+  node->rhs = rhs;
+  return node;
+}
+
+/**
+ * @brief create a new number Node
+ * @param  val
+ * @return Node*
+ */
+static Node *newNum(int val) {
+  Node *node = newNode(ND_NUM);
+  node->val = val;
+  return node;
+}
+
+/* 语法解析 */
+
+// 加减解析
+static Node *expr(Token **rest, Token *tok);
+// 乘除解析
+static Node *mul(Token **rest, Token *tok);
+// 数字解析
+static Node *primary(Token **rest, Token *tok);
+
+/**
+ * @brief 加减解析
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
+static Node *expr(Token **rest, Token *tok) {
+  Node *node = mul(&tok, tok);
+  while (true) {
+    if (equal(tok, "+")) {
+      node = newBinary(ND_ADD, node, mul(&tok, tok->next));
+      continue;
+    }
+
+    if (equal(tok, "-")) {
+      node = newBinary(ND_SUB, node, mul(&tok, tok->next));
+      continue;
+    }
+    *rest = tok;
+    return node;
+  }
+}
+
+/**
+ * @brief 乘除解析
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
+static Node *mul(Token **rest, Token *tok) {
+  Node *node = primary(&tok, tok);
+  while (true) {
+    if (equal(tok, "*")) {
+      node = newBinary(ND_MUL, node, primary(&tok, tok->next));
+      continue;
+    }
+
+    if (equal(tok, "/")) {
+      node = newBinary(ND_DIV, node, primary(&tok, tok->next));
+      continue;
+    }
+
+    *rest = tok;
+    return node;
+  }
+}
+
+/**
+ * @brief 括号和数字解析
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
+static Node *primary(Token **rest, Token *tok) {
+
+  // "(" expr ")"
+  if (equal(tok, "(")) {
+    Node *node = expr(&tok, tok->next);
+    *rest = skip(tok, ")");
+    return node;
+  }
+
+  // number
+  if (tok->kind == TK_NUM) {
+    Node *node = newNum(tok->val);
+    *rest = tok->next;
+    return node;
+  }
+
+  errorTok(tok, "expected an expression");
+  return NULL;
+}
+
+/* 语义分析与代码生成 */
+static int Depth;
+/**
+ * @brief 压栈，将结果临时压入栈中备用
+ * 当前栈指针的地址就是sp，将a0的值压入栈
+ * sp为栈指针，栈反向向下增长，64位下，8个字节为一个单位，所以sp-8
+ * 不使用寄存器存储的原因是因为需要存储的值的数量是变化的。
+ */
+static void push(void) {
+  printf("  addi sp, sp, -8\n");
+  printf("  sd a0, 0(sp)\n");
+  Depth++;
+}
+
+/**
+ * @brief stack pop function
+ * @param  reg
+ */
+static void pop(char *reg) {
+  printf("  ld %s, 0(sp)\n", reg);
+  printf("  addi sp, sp, 8\n");
+  Depth--;
+}
+
+/**
+ * @brief genrate expression
+ * @param  node
+ */
+static void genExpr(Node *node) {
+  if (node->kind == ND_NUM) {
+    printf("  li a0, %d\n", node->val);
+    return;
+  }
+
+  genExpr(node->rhs);
+  push();
+  genExpr(node->lhs);
+  pop("a1");
+
+  switch (node->kind) {
+  case ND_ADD:
+    printf("  add a0, a0, a1\n");
+    return;
+  case ND_SUB:
+    printf("  sub a0, a0, a1\n");
+    return;
+  case ND_MUL:
+    printf("  mul a0, a0, a1\n");
+    return;
+  case ND_DIV:
+    printf("  div a0, a0, a1\n");
+    return;
+  default:
+    break;
+  }
+
+  error("invalid expression");
 }
 
 int main(int Argc, char **Argv) {
@@ -199,31 +397,23 @@ int main(int Argc, char **Argv) {
   current_input = Argv[1];
   Token *tok = tokenize();
 
+  Node *node = expr(&tok, tok);
+  if (tok->kind != TK_EOF) {
+    errorTok(tok, "extra token");
+  }
+
   // 声明一个全局main段，同时也是程序入口段
   printf("  .globl main\n");
   // main段标签
   printf("main:\n");
 
-  // 这里我们将算式分解为 num (op num) (op num)...的形式
-  printf("  li a0, %d\n", getNumber(tok));
-
-  // 解析 (op num)
-  tok = tok->next;
-  while (tok->kind != TK_EOF) {
-    if (equal(tok, "+")) {
-      tok = tok->next;
-      printf("  addi a0, a0, %d\n", getNumber(tok));
-      tok = tok->next;
-      continue;
-    }
-
-    tok = skip(tok, "-");
-    printf("  addi a0, a0, -%d\n", getNumber(tok));
-    tok = tok->next;
-  }
+  // 遍历AST
+  genExpr(node);
 
   // 生成程序结束指令
   printf("  ret\n");
+
+  assert(Depth == 0);
 
   return 0;
 }
