@@ -15,9 +15,9 @@ static char *current_input;
  * @brief 为终结符设置种类
  */
 typedef enum TokenKind {
-  TK_RESERVED, // 符号
-  TK_NUM,      // 整数
-  TK_EOF,      // 文件结束
+  TK_PUNCT, // 符号
+  TK_NUM,   // 整数
+  TK_EOF,   // 文件结束
 } TokenKind;
 
 /**
@@ -147,6 +147,32 @@ static int getNumber(Token *tok) {
 }
 
 /**
+ * @brief  判断str是否以sub_str开头
+ * @param  str
+ * @param  sub_str
+ * @return true false
+ */
+static bool startsWith(char *str, char *sub_str) {
+  return strncmp(str, sub_str, strlen(sub_str)) == 0;
+}
+
+/**
+ * @brief 判断运算符
+ * @param  p
+ * @return int
+ */
+static int readPunct(char *p) {
+  // 2字符运算符
+  if (startsWith(p, "==") || startsWith(p, "!=") || startsWith(p, "<=") ||
+      startsWith(p, ">=")) {
+    return 2;
+  }
+
+  // 1字符运算符
+  return ispunct(*p) ? 1 : 0;
+}
+
+/**
  * @brief 解析过程
  * @param  p
  * @return Token*
@@ -171,9 +197,10 @@ static Token *tokenize() {
     }
 
     // 解析符号
-    if (ispunct(*p)) {
-      cur = cur->next = newToken(TK_RESERVED, p, p + 1);
-      ++p;
+    int punct_len = readPunct(p);
+    if (punct_len) {
+      cur = cur->next = newToken(TK_PUNCT, p, p + punct_len);
+      p += punct_len;
       continue;
     }
 
@@ -190,11 +217,15 @@ static Token *tokenize() {
 
 // AST的节点种类
 typedef enum NodeKind {
-  ND_ADD, // +
-  ND_SUB, // -
-  ND_MUL, // \*
-  ND_DIV, // /
-  ND_NEG, // -
+  ND_ADD, // `+`
+  ND_SUB, // `-`
+  ND_MUL, // `*`
+  ND_DIV, // `/`
+  ND_NEG, // `-` nagetive
+  ND_EQ,  // `==`
+  ND_NE,  // `!=`
+  ND_LT,  // `<`
+  ND_LE,  // `<=`
   ND_NUM, // 整数
 } NodeKind;
 
@@ -259,6 +290,10 @@ static Node *newNum(int val) {
 
 // 加减解析
 static Node *expr(Token **rest, Token *tok);
+// 比较解析
+static Node *equality(Token **rest, Token *tok);
+static Node *relational(Token **rest, Token *tok);
+static Node *add(Token **rest, Token *tok);
 // 乘除解析
 static Node *mul(Token **rest, Token *tok);
 // 一元解析 '-','+'，负号，正号
@@ -272,8 +307,75 @@ static Node *primary(Token **rest, Token *tok);
  * @param  tok
  * @return Node*
  */
-static Node *expr(Token **rest, Token *tok) {
+static Node *expr(Token **rest, Token *tok) { return equality(rest, tok); }
+
+static Node *equality(Token **rest, Token *tok) {
+  Node *node = relational(&tok, tok);
+  while (true) {
+    // "=="
+    if (equal(tok, "==")) {
+      node = newBinary(ND_EQ, node, relational(&tok, tok->next));
+      continue;
+    }
+
+    // "!="
+    if (equal(tok, "!=")) {
+      node = newBinary(ND_NE, node, relational(&tok, tok->next));
+      continue;
+    }
+
+    *rest = tok;
+    return node;
+  }
+}
+
+/**
+ * @brief 解析比较关系
+ * @param  Rest
+ * @param  Tok
+ * @return Node*
+ */
+static Node *relational(Token **Rest, Token *Tok) {
+  Node *node = add(&Tok, Tok);
+  while (true) {
+    // "<"
+    if (equal(Tok, "<")) {
+      node = newBinary(ND_LT, node, add(&Tok, Tok->next));
+      continue;
+    }
+
+    // "<="
+    if (equal(Tok, "<=")) {
+      node = newBinary(ND_LE, node, add(&Tok, Tok->next));
+      continue;
+    }
+
+    // ">"
+    if (equal(Tok, ">")) {
+      node = newBinary(ND_LT, add(&Tok, Tok->next), node);
+      continue;
+    }
+
+    // ">="
+    if (equal(Tok, ">=")) {
+      node = newBinary(ND_LE, add(&Tok, Tok->next), node);
+      continue;
+    }
+
+    *Rest = Tok;
+    return node;
+  }
+}
+
+/**
+ * @brief
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
+static Node *add(Token **rest, Token *tok) {
   Node *node = mul(&tok, tok);
+
   while (true) {
     if (equal(tok, "+")) {
       node = newBinary(ND_ADD, node, mul(&tok, tok->next));
@@ -284,6 +386,7 @@ static Node *expr(Token **rest, Token *tok) {
       node = newBinary(ND_SUB, node, mul(&tok, tok->next));
       continue;
     }
+
     *rest = tok;
     return node;
   }
@@ -404,6 +507,7 @@ static void genExpr(Node *node) {
   genExpr(node->lhs);
   pop("a1");
 
+  /* 生成二叉树结点 */
   switch (node->kind) {
   case ND_ADD:
     printf("  add a0, a0, a1\n");
@@ -416,6 +520,31 @@ static void genExpr(Node *node) {
     return;
   case ND_DIV:
     printf("  div a0, a0, a1\n");
+    return;
+  case ND_EQ:
+  case ND_NE:
+    // a0=a0^a1，异或指令
+    printf("  xor a0, a0, a1\n");
+
+    if (node->kind == ND_EQ)
+      // a0==a1
+      // a0=a0^a1, sltiu a0, a0, 1
+      // 等于0则置1
+      printf("  seqz a0, a0\n");
+    else
+      // a0!=a1
+      // a0=a0^a1, sltu a0, x0, a0
+      // 不等于0则置1
+      printf("  snez a0, a0\n");
+    return;
+  case ND_LT:
+    printf("  slt a0, a0, a1\n");
+    return;
+  case ND_LE:
+    // a0<=a1等价于
+    // a0=a1<a0, a0=a1^1
+    printf("  slt a0, a1, a0\n");
+    printf("  xori a0, a0, 1\n");
     return;
   default:
     break;
