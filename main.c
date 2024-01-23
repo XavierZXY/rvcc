@@ -14,7 +14,7 @@ static char *current_input;
 /**
  * @brief 为终结符设置种类
  */
-typedef enum {
+typedef enum TokenKind {
   TK_RESERVED, // 符号
   TK_NUM,      // 整数
   TK_EOF,      // 文件结束
@@ -189,11 +189,12 @@ static Token *tokenize() {
 /* 生成AST（抽象语法树）*/
 
 // AST的节点种类
-typedef enum {
+typedef enum NodeKind {
   ND_ADD, // +
   ND_SUB, // -
   ND_MUL, // \*
   ND_DIV, // /
+  ND_NEG, // -
   ND_NUM, // 整数
 } NodeKind;
 
@@ -214,6 +215,18 @@ struct Node {
 static Node *newNode(NodeKind kind) {
   Node *node = calloc(1, sizeof(Node));
   node->kind = kind;
+  return node;
+}
+
+/**
+ * @brief 新建一个单插树
+ * @param  kind
+ * @param  expr
+ * @return Node*
+ */
+static Node *newUnary(NodeKind kind, Node *expr) {
+  Node *node = newNode(ND_NEG);
+  node->lhs = expr;
   return node;
 }
 
@@ -248,6 +261,8 @@ static Node *newNum(int val) {
 static Node *expr(Token **rest, Token *tok);
 // 乘除解析
 static Node *mul(Token **rest, Token *tok);
+// 一元解析 '-','+'，负号，正号
+static Node *unary(Token **Rest, Token *Tok);
 // 数字解析
 static Node *primary(Token **rest, Token *tok);
 
@@ -281,21 +296,39 @@ static Node *expr(Token **rest, Token *tok) {
  * @return Node*
  */
 static Node *mul(Token **rest, Token *tok) {
-  Node *node = primary(&tok, tok);
+  Node *node = unary(&tok, tok);
   while (true) {
     if (equal(tok, "*")) {
-      node = newBinary(ND_MUL, node, primary(&tok, tok->next));
+      node = newBinary(ND_MUL, node, unary(&tok, tok->next));
       continue;
     }
 
     if (equal(tok, "/")) {
-      node = newBinary(ND_DIV, node, primary(&tok, tok->next));
+      node = newBinary(ND_DIV, node, unary(&tok, tok->next));
       continue;
     }
 
     *rest = tok;
     return node;
   }
+}
+
+/**
+ * @brief 解析一元运算
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
+static Node *unary(Token **rest, Token *tok) {
+  if (equal(tok, "+")) {
+    return unary(rest, tok->next);
+  }
+
+  if (equal(tok, "-")) {
+    return newUnary(ND_SUB, unary(rest, tok->next));
+  }
+
+  return primary(rest, tok);
 }
 
 /**
@@ -325,6 +358,7 @@ static Node *primary(Token **rest, Token *tok) {
 }
 
 /* 语义分析与代码生成 */
+
 static int Depth;
 /**
  * @brief 压栈，将结果临时压入栈中备用
@@ -353,9 +387,16 @@ static void pop(char *reg) {
  * @param  node
  */
 static void genExpr(Node *node) {
-  if (node->kind == ND_NUM) {
+  switch (node->kind) {
+  case ND_NUM:
     printf("  li a0, %d\n", node->val);
     return;
+  case ND_NEG:
+    genExpr(node->lhs);
+    printf("  neg a0, a0\n");
+    return;
+  default:
+    break;
   }
 
   genExpr(node->rhs);
