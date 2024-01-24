@@ -1,4 +1,5 @@
 #include "rvcc.h"
+#include <assert.h>
 
 /* 语义分析与代码生成 */
 
@@ -94,6 +95,19 @@ static void genExpr(Node *node) {
 }
 
 /**
+ * @brief 生成语句
+ * @param  Nd                
+ */
+static void genStmt(Node *node) {
+  if (node->kind == ND_EXPR_STMT) {
+    genExpr(node->lhs);
+    return;
+  }
+
+  error("invalid statement");
+}
+
+/**
  * @brief 代码生成入口函数
  * @param  node              
  */
@@ -103,10 +117,11 @@ void codegen(Node *node) {
   // main段标签
   printf("main:\n");
 
-  genExpr(node);
+  for (Node *n = node; n; n = n->next) {
+    genStmt(n);
+    assert(Depth == 0);
+  }
 
   // 生成程序结束指令
   printf("  ret\n");
-
-  assert(Depth == 0);
 }

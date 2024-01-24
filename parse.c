@@ -18,7 +18,7 @@ static Node *newNode(NodeKind kind) {
  * @return Node*
  */
 static Node *newUnary(NodeKind kind, Node *expr) {
-  Node *node = newNode(ND_NEG);
+  Node *node = newNode(kind);
   node->lhs = expr;
   return node;
 }
@@ -50,6 +50,9 @@ static Node *newNum(int val) {
 
 /* 语法解析 */
 
+// 语句解析
+static Node *stmt(Token **rest, Token *tok);
+static Node *exprStmt(Token **rest, Token *tok);
 // 加减解析
 static Node *expr(Token **rest, Token *tok);
 // 比较解析
@@ -64,13 +67,33 @@ static Node *unary(Token **Rest, Token *Tok);
 static Node *primary(Token **rest, Token *tok);
 
 /**
- * @brief 加减解析
+ * @brief 语句解析
+ * @param  rest              
+ * @param  tok               
+ * @return Node* 
+ */
+static Node *stmt(Token **rest, Token *tok) {
+  return exprStmt(rest, tok);
+}
+static Node *exprStmt(Token **rest, Token *tok) {
+  Node *node = newUnary(ND_EXPR_STMT, expr(&tok, tok));
+  *rest = skip(tok, ";");
+  return node;
+}
+/**
+ * @brief  表达式解析
  * @param  rest
  * @param  tok
  * @return Node*
  */
 static Node *expr(Token **rest, Token *tok) { return equality(rest, tok); }
 
+/**
+ * @brief 比较解析
+ * @param  rest              
+ * @param  tok               
+ * @return Node* 
+ */
 static Node *equality(Token **rest, Token *tok) {
   Node *node = relational(&tok, tok);
   while (true) {
@@ -190,7 +213,7 @@ static Node *unary(Token **rest, Token *tok) {
   }
 
   if (equal(tok, "-")) {
-    return newUnary(ND_SUB, unary(rest, tok->next));
+    return newUnary(ND_NEG, unary(rest, tok->next));
   }
 
   return primary(rest, tok);
@@ -224,13 +247,15 @@ static Node *primary(Token **rest, Token *tok) {
 
 /**
  * @brief 语法解析入口函数
- * @param  tok               
- * @return Node* 
+ * @param  tok
+ * @return Node*
  */
 Node *parse(Token *tok) {
-  Node *node = expr(&tok, tok);
-  if (tok->kind != TK_EOF) {
-    errorTok(tok, "extra token");
+  Node head = {};
+  Node *cur = &head;
+
+  while (tok->kind != TK_EOF) {
+    cur = cur->next = stmt(&tok, tok);
   }
-  return node;
+  return head.next;
 }
