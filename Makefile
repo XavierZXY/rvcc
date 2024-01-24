@@ -3,10 +3,16 @@ CFLAGS=-std=c11 -g -fno-common
 # 指定C编译器，来构建项目
 CC=clang
 
+# C源代码文件，表示所有的.c结尾的文件
+SRCS=$(wildcard *.c)
+# C文件编译生成的未链接的可重定位文件，将所有.c文件替换为同名的.o结尾的文件名
+OBJS=$(SRCS:.c=.o)
+
+
 # rvcc标签，表示如何构建最终的二进制文件，依赖于main.o文件
-rvcc: main.o
+rvcc: $(OBJS)
 # 将多个*.o文件编译为rvcc
-	$(CC) -o rvcc $(CFLAGS) main.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # 测试标签，运行测试脚本
 test: rvcc
