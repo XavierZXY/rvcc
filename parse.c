@@ -38,6 +38,17 @@ static Node *newBinary(NodeKind kind, Node *lhs, Node *rhs) {
 }
 
 /**
+ * @brief creat a new variable Node
+ * @param  name              
+ * @return Node* 
+ */
+static Node *newVarNode(char name) {
+  Node *node = newNode(ND_VAR);
+  node->name = name;
+  return node;
+}
+
+/**
  * @brief create a new number Node
  * @param  val
  * @return Node*
@@ -65,16 +76,17 @@ static Node *mul(Token **rest, Token *tok);
 static Node *unary(Token **Rest, Token *Tok);
 // 数字解析
 static Node *primary(Token **rest, Token *tok);
+// 赋值解析
+static Node* assign(Token **rest, Token *tok);
+
 
 /**
  * @brief 语句解析
- * @param  rest              
- * @param  tok               
- * @return Node* 
+ * @param  rest
+ * @param  tok
+ * @return Node*
  */
-static Node *stmt(Token **rest, Token *tok) {
-  return exprStmt(rest, tok);
-}
+static Node *stmt(Token **rest, Token *tok) { return exprStmt(rest, tok); }
 static Node *exprStmt(Token **rest, Token *tok) {
   Node *node = newUnary(ND_EXPR_STMT, expr(&tok, tok));
   *rest = skip(tok, ";");
@@ -86,13 +98,28 @@ static Node *exprStmt(Token **rest, Token *tok) {
  * @param  tok
  * @return Node*
  */
-static Node *expr(Token **rest, Token *tok) { return equality(rest, tok); }
+static Node *expr(Token **rest, Token *tok) { return assign(rest, tok); }
+
+/**
+ * @brief 赋值解析
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
+static Node* assign(Token **rest, Token *tok) {
+  Node *node = equality(&tok, tok);
+  if (equal(tok, "=")) {
+    node = newBinary(ND_ASSIGN, node, assign(&tok, tok->next));
+  }
+  *rest = tok;
+  return node;
+}
 
 /**
  * @brief 比较解析
- * @param  rest              
- * @param  tok               
- * @return Node* 
+ * @param  rest
+ * @param  tok
+ * @return Node*
  */
 static Node *equality(Token **rest, Token *tok) {
   Node *node = relational(&tok, tok);
@@ -220,7 +247,7 @@ static Node *unary(Token **rest, Token *tok) {
 }
 
 /**
- * @brief 括号和数字解析
+ * @brief  bracket, number, variable
  * @param  rest
  * @param  tok
  * @return Node*
@@ -231,6 +258,13 @@ static Node *primary(Token **rest, Token *tok) {
   if (equal(tok, "(")) {
     Node *node = expr(&tok, tok->next);
     *rest = skip(tok, ")");
+    return node;
+  }
+
+  // variable
+  if (tok->kind == TK_IDENT) {
+    Node *node = newVarNode(*tok->loc);
+    *rest = tok->next;
     return node;
   }
 

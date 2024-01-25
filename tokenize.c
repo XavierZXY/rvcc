@@ -160,6 +160,13 @@ Token *tokenize(char *p) {
       continue;
     }
 
+    // 解析标记符
+    if ('a' <= *p && *p <= 'z') {
+      cur = cur->next = newToken(TK_IDENT, p, p + 1);
+      ++p;
+      continue;
+    }
+
     // 解析数字
     if (isdigit(*p)) {
       cur = cur->next = newToken(TK_NUM, p, p);

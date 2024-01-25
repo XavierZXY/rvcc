@@ -1,5 +1,6 @@
 #include "rvcc.h"
 #include <assert.h>
+#include <stdio.h>
 
 /* 语义分析与代码生成 */
 
@@ -27,6 +28,20 @@ static void pop(char *reg) {
 }
 
 /**
+ * @brief get address of variable
+ * @param  node
+ */
+static void getAddr(Node *node) {
+  if (node->kind == ND_VAR) {
+    int offset = (node->name - 'a' + 1) * 8;
+    printf("addi a0, fp, -%d\n", offset);
+    return;
+  }
+
+  error("not an value");
+}
+
+/**
  * @brief genrate expression
  * @param  node
  */
@@ -38,6 +53,17 @@ static void genExpr(Node *node) {
   case ND_NEG:
     genExpr(node->lhs);
     printf("  neg a0, a0\n");
+    return;
+  case ND_VAR:
+    getAddr(node);
+    printf("  ld a0, 0(a0)\n");
+    return;
+  case ND_ASSIGN:
+    getAddr(node->lhs);
+    push();
+    genExpr(node->rhs);
+    pop("a1");
+    printf("  sd a0, 0(a1)\n");
     return;
   default:
     break;
@@ -96,7 +122,7 @@ static void genExpr(Node *node) {
 
 /**
  * @brief 生成语句
- * @param  Nd                
+ * @param  Nd
  */
 static void genStmt(Node *node) {
   if (node->kind == ND_EXPR_STMT) {
@@ -109,7 +135,7 @@ static void genStmt(Node *node) {
 
 /**
  * @brief 代码生成入口函数
- * @param  node              
+ * @param  node
  */
 void codegen(Node *node) {
   // 声明一个全局main段，同时也是程序入口段
@@ -117,10 +143,39 @@ void codegen(Node *node) {
   // main段标签
   printf("main:\n");
 
+  // 栈布局
+  //-------------------------------// sp
+  //              fp                  fp = sp-8
+  //-------------------------------// fp
+  //              'a'                 fp-8
+  //              'b'                 fp-16
+  //              ...
+  //              'z'                 fp-208
+  //-------------------------------// sp=sp-8-208
+  //           表达式计算
+  //-------------------------------//
+
+  /* Prologue, 前言 */
+  // 将fp压入栈中，保存fp的值
+  printf("  addi sp, sp, -8\n");
+  printf("  sd fp, 0(sp)\n");
+  // 将sp写入fp
+  printf("  mv fp, sp\n");
+
+  // 26个字母*8字节=208字节，栈腾出208字节的空间
+  printf("  addi sp, sp, -208\n");
+
   for (Node *n = node; n; n = n->next) {
     genStmt(n);
     assert(Depth == 0);
   }
+
+  /* Epilogue，后语 */
+  // 将fp的值改写回sp
+  printf("  mv sp, fp\n");
+  // 将最早fp保存的值弹栈，恢复fp。
+  printf("  ld fp, 0(sp)\n");
+  printf("  addi sp, sp, 8\n");
 
   // 生成程序结束指令
   printf("  ret\n");

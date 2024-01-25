@@ -10,6 +10,7 @@
  * @brief 为终结符设置种类
  */
 typedef enum TokenKind {
+  TK_IDENT, // 标识符
   TK_PUNCT, // 符号
   TK_NUM,   // 整数
   TK_EOF,   // 文件结束
@@ -47,6 +48,8 @@ typedef enum NodeKind {
   ND_NE,  // `!=`
   ND_LT,  // `<`
   ND_LE,  // `<=`
+  ND_ASSIGN, // `=`
+  ND_VAR,   // 局部变量
   ND_EXPR_STMT, // 表达式语句
   ND_NUM, // 整数
 } NodeKind;
@@ -58,6 +61,7 @@ struct Node {
   Node *next;    // 下一个节点, 用于表达式语句
   Node *lhs;     // 左子节点
   Node *rhs;     // 右子节点
+  char name;     // 变量名
   int val;       // 节点值
 };
 
