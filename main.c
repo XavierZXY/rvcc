@@ -14,10 +14,10 @@ int main(int Argc, char **Argv) {
   Token *tok = tokenize(Argv[1]);
 
   // 解析语法树
-  Node *node = parse(tok);
+  Function *prog= parse(tok);
 
   // 代码生成
-  codegen(node);
+  codegen(prog);
 
   return 0;
 }

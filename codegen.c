@@ -28,13 +28,23 @@ static void pop(char *reg) {
 }
 
 /**
+ * @brief align to
+ * @param  N
+ * @param  Align
+ * @return int
+ */
+static int alignTo(int n, int align) {
+  // (0,Align]返回Align
+  return (n + align - 1) / align * align;
+}
+
+/**
  * @brief get address of variable
  * @param  node
  */
 static void getAddr(Node *node) {
   if (node->kind == ND_VAR) {
-    int offset = (node->name - 'a' + 1) * 8;
-    printf("addi a0, fp, -%d\n", offset);
+    printf("addi a0, fp, -%d\n", node->var->offset);
     return;
   }
 
@@ -133,11 +143,25 @@ static void genStmt(Node *node) {
   error("invalid statement");
 }
 
+static void assignLocalVarOffset(Function *prog) {
+  int offset = 0;
+  for (Obj *var = prog->locals; var; var = var->next) {
+    // allocate 8 bytes for each local variable
+    offset += 8;
+    // set offset from fp
+    var->offset = offset;
+  }
+
+  prog->stack_size = alignTo(offset, 16);
+}
+
 /**
  * @brief 代码生成入口函数
  * @param  node
  */
-void codegen(Node *node) {
+void codegen(Function *prog) {
+  assignLocalVarOffset(prog);
+
   // 声明一个全局main段，同时也是程序入口段
   printf(".globl main\n");
   // main段标签
@@ -165,7 +189,7 @@ void codegen(Node *node) {
   // 26个字母*8字节=208字节，栈腾出208字节的空间
   printf("  addi sp, sp, -208\n");
 
-  for (Node *n = node; n; n = n->next) {
+  for (Node *n = prog->body; n; n = n->next) {
     genStmt(n);
     assert(Depth == 0);
   }

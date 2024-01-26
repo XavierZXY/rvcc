@@ -31,7 +31,7 @@ assert() {
   fi
 }
 
-# assert 期待值 输入值
+# # assert 期待值 输入值
 # [1] 返回指定数值
 echo "**** [1] 返回指定数值 ****"
 assert 0 '0;'
@@ -91,6 +91,11 @@ assert 3 'a=3; a;'
 assert 8 'a=3; z=5; a+z;'
 assert 6 'a=b=3; a+b;'
 assert 5 'a=3;b=4;a=1;a+b;'
+
+# [11] 支持多字母变量
+echo "**** [11] 支持多字母变量 ****"
+assert 3 'foo=3; foo;'
+assert 74 'foo2=70; bar4=4; foo2+bar4;'
 
 # 如果运行正常未提前退出，程序将显示OK
 echo OK

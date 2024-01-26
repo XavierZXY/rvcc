@@ -39,12 +39,12 @@ static Node *newBinary(NodeKind kind, Node *lhs, Node *rhs) {
 
 /**
  * @brief creat a new variable Node
- * @param  name              
- * @return Node* 
+ * @param  name
+ * @return Node*
  */
-static Node *newVarNode(char name) {
+static Node *newVarNode(Obj *var) {
   Node *node = newNode(ND_VAR);
-  node->name = name;
+  node->var = var;
   return node;
 }
 
@@ -57,6 +57,37 @@ static Node *newNum(int val) {
   Node *node = newNode(ND_NUM);
   node->val = val;
   return node;
+}
+
+// local variable list
+Obj *locals;
+
+/**
+ * @brief find a local variable
+ * @param  name
+ * @return Obj*
+ */
+static Obj *findVar(Token *tok) {
+  for (Obj *var = locals; var; var = var->next) {
+    if (strlen(var->name) == tok->len &&
+        !strncmp(tok->loc, var->name, tok->len)) {
+      return var;
+    }
+  }
+  return NULL;
+}
+
+/**
+ * @brief create a new local variable
+ * @param  tok
+ * @return Obj*
+ */
+static Obj *newLocalVar(char *name) {
+  Obj *var = calloc(1, sizeof(Obj));
+  var->name = name;
+  var->next = locals;
+  locals = var;
+  return var;
 }
 
 /* 语法解析 */
@@ -77,8 +108,7 @@ static Node *unary(Token **Rest, Token *Tok);
 // 数字解析
 static Node *primary(Token **rest, Token *tok);
 // 赋值解析
-static Node* assign(Token **rest, Token *tok);
-
+static Node *assign(Token **rest, Token *tok);
 
 /**
  * @brief 语句解析
@@ -106,7 +136,7 @@ static Node *expr(Token **rest, Token *tok) { return assign(rest, tok); }
  * @param  tok
  * @return Node*
  */
-static Node* assign(Token **rest, Token *tok) {
+static Node *assign(Token **rest, Token *tok) {
   Node *node = equality(&tok, tok);
   if (equal(tok, "=")) {
     node = newBinary(ND_ASSIGN, node, assign(&tok, tok->next));
@@ -263,9 +293,12 @@ static Node *primary(Token **rest, Token *tok) {
 
   // variable
   if (tok->kind == TK_IDENT) {
-    Node *node = newVarNode(*tok->loc);
+    Obj *var = findVar(tok);
+    if (!var) {
+      var = newLocalVar(strndup(tok->loc, tok->len));
+    }
     *rest = tok->next;
-    return node;
+    return newVarNode(var);
   }
 
   // number
@@ -284,12 +317,18 @@ static Node *primary(Token **rest, Token *tok) {
  * @param  tok
  * @return Node*
  */
-Node *parse(Token *tok) {
+Function *parse(Token *tok) {
   Node head = {};
   Node *cur = &head;
 
   while (tok->kind != TK_EOF) {
     cur = cur->next = stmt(&tok, tok);
   }
-  return head.next;
+
+  // 函数体存储语句的AST，locals存储局部变量
+  Function *prog = calloc(1, sizeof(Function));
+  prog->body = head.next;
+  prog->locals = locals;
+
+  return prog;
 }

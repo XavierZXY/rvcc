@@ -107,6 +107,26 @@ Token *skip(Token *tok, char *str) {
 }
 
 /**
+ * @brief 标记符的首字母判断，[a-z, A-Z]
+ * @param  c                 
+ * @return true 
+ * @return false 
+ */
+static bool isIdent1(char c) {
+  return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+}
+
+/**
+ * @brief 标记符的其他字母判断，[a-z, A-Z, 0-9]
+ * @param  c
+ * @return true
+ * @return false
+ */
+static bool isIdent2(char c) {
+  return isIdent1(c) || ('0' <= c && c <= '9');
+}
+
+/**
  * @brief Get the Number object
  * @param  tok
  * @return int
@@ -160,19 +180,22 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    // 解析标记符
-    if ('a' <= *p && *p <= 'z') {
-      cur = cur->next = newToken(TK_IDENT, p, p + 1);
-      ++p;
-      continue;
-    }
-
     // 解析数字
     if (isdigit(*p)) {
       cur = cur->next = newToken(TK_NUM, p, p);
       const char *old_p = p;
       cur->val = strtoul(p, &p, 10);
       cur->len = p - old_p;
+      continue;
+    }
+
+    // 解析标记符
+    if (isIdent1(*p)) {
+      char *start = p;
+      do {
+        ++p;
+      } while (isIdent2(*p));
+      cur = cur->next = newToken(TK_IDENT, start, p);
       continue;
     }
 

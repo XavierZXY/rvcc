@@ -1,3 +1,7 @@
+// 使用POSIX.1标准
+// 使用了strndup函数
+#define _POSIX_C_SOURCE 200809L
+
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
@@ -37,45 +41,62 @@ Token *tokenize(char *str);
 
 /* 生成AST（抽象语法树）*/
 
+typedef struct Obj Obj;
+typedef struct Node Node;
+
 // AST的节点种类
 typedef enum NodeKind {
-  ND_ADD, // `+`
-  ND_SUB, // `-`
-  ND_MUL, // `*`
-  ND_DIV, // `/`
-  ND_NEG, // `-` nagetive
-  ND_EQ,  // `==`
-  ND_NE,  // `!=`
-  ND_LT,  // `<`
-  ND_LE,  // `<=`
-  ND_ASSIGN, // `=`
-  ND_VAR,   // 局部变量
+  ND_ADD,       // `+`
+  ND_SUB,       // `-`
+  ND_MUL,       // `*`
+  ND_DIV,       // `/`
+  ND_NEG,       // `-` nagetive
+  ND_EQ,        // `==`
+  ND_NE,        // `!=`
+  ND_LT,        // `<`
+  ND_LE,        // `<=`
+  ND_ASSIGN,    // `=`
+  ND_VAR,       // 局部变量
   ND_EXPR_STMT, // 表达式语句
-  ND_NUM, // 整数
+  ND_NUM,       // 整数
 } NodeKind;
 
 // AST的节点结构体
-typedef struct Node Node;
 struct Node {
   NodeKind kind; // 节点种类
   Node *next;    // 下一个节点, 用于表达式语句
   Node *lhs;     // 左子节点
   Node *rhs;     // 右子节点
-  char name;     // 变量名
+  Obj *var;      // 变量
   int val;       // 节点值
+};
+
+// 本地变量
+struct Obj {
+  Obj *next;  // 指向下一对象
+  char *name; // 变量名
+  int offset; // fp的偏移量
+};
+
+// 函数
+typedef struct Function Function;
+struct Function {
+  Node *body;     // 函数体
+  Obj *locals;    // 本地变量
+  int stack_size; // 栈大小
 };
 
 /**
  * @brief 语法解析
- * @param  tok               
- * @return Node* 
+ * @param  tok
+ * @return Node*
  */
-Node *parse(Token *tok);
+Function *parse(Token *tok);
 
 /* 语义分析与代码生成 */
 
 /**
  * @brief 代码生成函数
- * @param  node              
+ * @param  node
  */
-void codegen(Node *node);
+void codegen(Function *prog);
