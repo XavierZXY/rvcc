@@ -116,7 +116,14 @@ static Node *assign(Token **rest, Token *tok);
  * @param  tok
  * @return Node*
  */
-static Node *stmt(Token **rest, Token *tok) { return exprStmt(rest, tok); }
+static Node *stmt(Token **rest, Token *tok) {
+  if (equal(tok, "return")) {
+    Node *node = newUnary(ND_RETURN, expr(&tok, tok->next));
+    *rest = skip(tok, ";");
+    return node;
+  }
+  return exprStmt(rest, tok);
+}
 static Node *exprStmt(Token **rest, Token *tok) {
   Node *node = newUnary(ND_EXPR_STMT, expr(&tok, tok));
   *rest = skip(tok, ";");

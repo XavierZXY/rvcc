@@ -16,6 +16,7 @@
 typedef enum TokenKind {
   TK_IDENT, // 标识符
   TK_PUNCT, // 符号
+  TK_KEYWORD, // 关键字
   TK_NUM,   // 整数
   TK_EOF,   // 文件结束
 } TokenKind;
@@ -59,6 +60,7 @@ typedef enum NodeKind {
   ND_VAR,       // 局部变量
   ND_EXPR_STMT, // 表达式语句
   ND_NUM,       // 整数
+  ND_RETURN,    // return
 } NodeKind;
 
 // AST的节点结构体

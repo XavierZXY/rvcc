@@ -10,10 +10,10 @@ int main(int Argc, char **Argv) {
     error("%s: invalid number of arguments", Argv[0]);
   }
 
-  // 解析参数
+  // 词法分析，解析参数
   Token *tok = tokenize(Argv[1]);
 
-  // 解析语法树
+  // 语法分析，解析语法树
   Function *prog= parse(tok);
 
   // 代码生成

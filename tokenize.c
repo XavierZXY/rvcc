@@ -108,9 +108,9 @@ Token *skip(Token *tok, char *str) {
 
 /**
  * @brief 标记符的首字母判断，[a-z, A-Z]
- * @param  c                 
- * @return true 
- * @return false 
+ * @param  c
+ * @return true
+ * @return false
  */
 static bool isIdent1(char c) {
   return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
@@ -122,9 +122,7 @@ static bool isIdent1(char c) {
  * @return true
  * @return false
  */
-static bool isIdent2(char c) {
-  return isIdent1(c) || ('0' <= c && c <= '9');
-}
+static bool isIdent2(char c) { return isIdent1(c) || ('0' <= c && c <= '9'); }
 
 /**
  * @brief Get the Number object
@@ -163,6 +161,18 @@ static int readPunct(char *p) {
 
   // 1字符运算符
   return ispunct(*p) ? 1 : 0;
+}
+
+/**
+ * @brief 标记关键字终结符
+ * @param  tok
+ */
+static void convertKeywords(Token *tok) {
+  for (Token *t = tok; t->kind != TK_EOF; t = t->next) {
+    if (equal(t, "return")) {
+      t->kind = TK_KEYWORD;
+    }
+  }
 }
 
 /**
@@ -212,6 +222,9 @@ Token *tokenize(char *p) {
 
   // 解析结束
   cur->next = newToken(TK_EOF, p, p);
+
+  // 标记关键字终结符
+  convertKeywords(head.next);
 
   return head.next;
 }
