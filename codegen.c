@@ -198,12 +198,10 @@ void codegen(Function *prog) {
   printf("  mv fp, sp\n");
 
   // 26个字母*8字节=208字节，栈腾出208字节的空间
-  printf("  addi sp, sp, -208\n");
+  printf("  addi sp, sp, -%d\n", prog->stack_size);
 
-  for (Node *n = prog->body; n; n = n->next) {
-    genStmt(n);
-    assert(Depth == 0);
-  }
+  genStmt(prog->body);
+  assert(Depth == 0);
 
   /* Epilogue，后语 */
 

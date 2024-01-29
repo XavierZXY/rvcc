@@ -158,6 +158,11 @@ static Node *compoundStmt(Token **rest, Token *tok) {
  * @return Node*
  */
 static Node *exprStmt(Token **rest, Token *tok) {
+  if (equal(tok, ";")) {
+    *rest = tok->next;
+    return newNode(ND_BLOCK);
+  }
+  
   Node *node = newUnary(ND_EXPR_STMT, expr(&tok, tok));
   *rest = skip(tok, ";");
   return node;
