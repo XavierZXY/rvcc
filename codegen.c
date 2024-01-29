@@ -143,6 +143,37 @@ static void genExpr(Node *node) {
  */
 static void genStmt(Node *node) {
   switch (node->kind) {
+  // if语句
+  case ND_IF: {
+    int c = count();
+    genExpr(node->cond);
+    printf("  beqz a0, .L.else.%d\n", c);
+    genStmt(node->then);
+    printf("  j .L.end.%d\n", c);
+    printf(".L.else.%d:\n", c);
+    if (node->els)
+      genStmt(node->els);
+    printf(".L.end.%d:\n", c);
+    return;
+  }
+  // for
+  case ND_FOR: {
+    int c = count();
+    if (node->init)
+      genStmt(node->init);
+    printf(".L.begin.%d:\n", c);
+    if (node->cond) {
+      genExpr(node->cond);
+      printf("  beqz a0, .L.end.%d\n", c);
+    }
+    genStmt(node->then);
+    if (node->inc)
+      genExpr(node->inc);
+    printf("  j .L.begin.%d\n", c);
+    printf(".L.end.%d:\n", c);
+    return;
+  }
+
   // 语句块
   case ND_BLOCK:
     for (Node *n = node->body; n; n = n->next)
@@ -157,19 +188,7 @@ static void genStmt(Node *node) {
   case ND_EXPR_STMT:
     genExpr(node->lhs);
     return;
-  // if语句
-  case ND_IF: {
-    int c = count();
-    genExpr(node->cond);
-    printf("  beqz a0, .L.else.%d\n", c);
-    genStmt(node->then);
-    printf("  j .L.end.%d\n", c);
-    printf(".L.else.%d:\n", c);
-    if (node->els)
-      genStmt(node->els);
-    printf(".L.end.%d:\n", c);
-    return;
-  }
+
   default:
     break;
   }

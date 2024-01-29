@@ -146,10 +146,31 @@ static Node *stmt(Token **rest, Token *tok) {
     return node;
   }
 
+  // 解析for语句
+  if (equal(tok, "for")) {
+      Node *node = newNode(ND_FOR);
+      tok = skip(tok->next, "(");
+      node->init = exprStmt(&tok, tok);
+      if (!equal(tok, ";")) {
+        node->cond = expr(&tok, tok);
+      }
+      tok = skip(tok, ";");
+
+      if (!equal(tok, ")")) {
+        node->inc = expr(&tok, tok);
+      }
+      tok = skip(tok, ")");
+
+      node->then = stmt(rest, tok);
+      return node;
+    }
+
   // "{" compoundStmt
   if (equal(tok, "{")) {
     return compoundStmt(rest, tok->next);
   }
+
+  // exprStmt
   return exprStmt(rest, tok);
 }
 
@@ -174,7 +195,7 @@ static Node *compoundStmt(Token **rest, Token *tok) {
 }
 
 /**
- * @brief 表达式语句解析
+ * @brief 表达式语句解析 expr?*";"
  * @param  rest
  * @param  tok
  * @return Node*

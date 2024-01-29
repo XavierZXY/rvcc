@@ -1,4 +1,5 @@
 #include "rvcc.h"
+#include <stdbool.h>
 
 /**
  * @brief 当前输入的字符串
@@ -163,13 +164,25 @@ static int readPunct(char *p) {
   return ispunct(*p) ? 1 : 0;
 }
 
+static char *kwrods[] = {"return", "if", "else", "for"};
+static bool isKeyword(Token *tok) { 
+    for (int i = 0; i < sizeof(kwrods) / sizeof(*kwrods); i++) {
+        if (equal(tok, kwrods[i])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
 /**
  * @brief 标记关键字终结符
  * @param  tok
  */
 static void convertKeywords(Token *tok) {
   for (Token *t = tok; t->kind != TK_EOF; t = t->next) {
-    if (equal(t, "return")) {
+    if (isKeyword(t)) {
       t->kind = TK_KEYWORD;
     }
   }

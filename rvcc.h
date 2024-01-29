@@ -58,6 +58,7 @@ typedef enum NodeKind {
   ND_LE,        // `<=`
   ND_ASSIGN,    // `=`
   ND_IF,        // `if`
+  ND_FOR,       // `for`
   ND_BLOCK,     // { ... }，代码块
   ND_VAR,       // 局部变量
   ND_EXPR_STMT, // 表达式语句
@@ -71,11 +72,13 @@ struct Node {
   Node *next;    // 下一个节点, 用于表达式语句
   Node *lhs;     // 左子节点
   Node *rhs;     // 右子节点
-  
-  // if 语句
+
+  // `if`, `for`
   Node *cond; // 条件表达式
   Node *then; // then
   Node *els;  // else
+  Node *init; // for的初始化
+  Node *inc;  // for的增量
 
   Node *body; // 代码块
   Obj *var;   // 存储ND_VAR种类的变量
