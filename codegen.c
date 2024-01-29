@@ -12,6 +12,7 @@ static int Depth;
  * 不使用寄存器存储的原因是因为需要存储的值的数量是变化的。
  */
 static void push(void) {
+  printf("# push stack, push the value of a0 into stack\n");
   printf("  addi sp, sp, -8\n");
   printf("  sd a0, 0(sp)\n");
   Depth++;
@@ -22,6 +23,7 @@ static void push(void) {
  * @param  reg
  */
 static void pop(char *reg) {
+  printf("# pop stack, pop the value of top of stack\n");
   printf("  ld %s, 0(sp)\n", reg);
   printf("  addi sp, sp, 8\n");
   Depth--;
@@ -51,6 +53,8 @@ static int alignTo(int n, int align) {
  */
 static void getAddr(Node *node) {
   if (node->kind == ND_VAR) {
+    printf("# get address of variable %s in the stack, it's %d(fp)\n",
+           node->var->name, node->var->offset);
     printf("addi a0, fp, -%d\n", node->var->offset);
     return;
   }
@@ -65,14 +69,17 @@ static void getAddr(Node *node) {
 static void genExpr(Node *node) {
   switch (node->kind) {
   case ND_NUM:
+    printf("# load the value of node %d into a0\n", node->val);
     printf("  li a0, %d\n", node->val);
     return;
   case ND_NEG:
     genExpr(node->lhs);
+    printf("# negative the value of a0\n");
     printf("  neg a0, a0\n");
     return;
   case ND_VAR:
     getAddr(node);
+    printf("# load the value of a0\n");
     printf("  ld a0, 0(a0)\n");
     return;
   case ND_ASSIGN:
@@ -80,6 +87,7 @@ static void genExpr(Node *node) {
     push();
     genExpr(node->rhs);
     pop("a1");
+    printf("# assign the value of a1 to a0\n");
     printf("  sd a0, 0(a1)\n");
     return;
   default:
@@ -146,26 +154,42 @@ static void genStmt(Node *node) {
   // if语句
   case ND_IF: {
     int c = count();
+    printf("\n# ========== Branching statement ==========\n");
+    printf("\n# cond expression %d \n", c);
     genExpr(node->cond);
+
+    printf("# if cond is false, jump to else statement\n");
     printf("  beqz a0, .L.else.%d\n", c);
+    printf("# if cond is true, execute then statement\n");
     genStmt(node->then);
+
+    printf("# jump to end statement\n");
     printf("  j .L.end.%d\n", c);
+    printf("# else statement %d\n", c);
     printf(".L.else.%d:\n", c);
     if (node->els)
       genStmt(node->els);
+
     printf(".L.end.%d:\n", c);
     return;
   }
   // for
   case ND_FOR: {
     int c = count();
-    if (node->init)
+    printf("\n# ========== Loop statement ==========\n");
+    if (node->init) {
+      printf("# init expression %d\n", c);
       genStmt(node->init);
+    }
+    printf("# the %d segement label of %d times loop\n", c, c);
     printf(".L.begin.%d:\n", c);
+
+    printf("# cond expression %d\n", c);
     if (node->cond) {
       genExpr(node->cond);
       printf("  beqz a0, .L.end.%d\n", c);
     }
+
     genStmt(node->then);
     if (node->inc)
       genExpr(node->inc);
@@ -233,6 +257,7 @@ void codegen(Function *prog) {
   //-------------------------------//
 
   /* Prologue, 前言 */
+  printf("# push fp to stack\n");
   // 将fp压入栈中，保存fp的值
   printf("  addi sp, sp, -8\n");
   printf("  sd fp, 0(sp)\n");
