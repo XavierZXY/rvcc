@@ -27,6 +27,13 @@ static void pop(char *reg) {
   Depth--;
 }
 
+static int i = 1;
+/**
+ * @brief count
+ * @return int
+ */
+static int count(void) { return i++; }
+
 /**
  * @brief align to
  * @param  N
@@ -136,17 +143,33 @@ static void genExpr(Node *node) {
  */
 static void genStmt(Node *node) {
   switch (node->kind) {
+  // 语句块
   case ND_BLOCK:
     for (Node *n = node->body; n; n = n->next)
       genStmt(n);
     return;
+  // return语句
   case ND_RETURN:
     genExpr(node->lhs);
     printf(" j .L.return\n");
     return;
+  // 表达式语句
   case ND_EXPR_STMT:
     genExpr(node->lhs);
     return;
+  // if语句
+  case ND_IF: {
+    int c = count();
+    genExpr(node->cond);
+    printf("  beqz a0, .L.else.%d\n", c);
+    genStmt(node->then);
+    printf("  j .L.end.%d\n", c);
+    printf(".L.else.%d:\n", c);
+    if (node->els)
+      genStmt(node->els);
+    printf(".L.end.%d:\n", c);
+    return;
+  }
   default:
     break;
   }

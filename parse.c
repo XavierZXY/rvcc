@@ -114,6 +114,10 @@ static Node *assign(Token **rest, Token *tok);
 
 /**
  * @brief 语句解析
+ * "return" expr ";"
+ *  | "if" "(" expr ")" stmt ("else" stmt)?
+ *  | "{" compoundStmt
+ *  | exprStmt
  * @param  rest
  * @param  tok
  * @return Node*
@@ -125,6 +129,24 @@ static Node *stmt(Token **rest, Token *tok) {
     return node;
   }
 
+  // 解析if语句
+  if (equal(tok, "if")) {
+    Node *node = newNode(ND_IF);
+    tok = skip(tok->next, "(");
+    node->cond = expr(&tok, tok);
+    tok = skip(tok, ")");
+    // then 符合条件后的语句
+    node->then = stmt(&tok, tok);
+    // else
+    if (equal(tok, "else")) {
+      node->els = stmt(&tok, tok->next);
+    }
+
+    *rest = tok;
+    return node;
+  }
+
+  // "{" compoundStmt
   if (equal(tok, "{")) {
     return compoundStmt(rest, tok->next);
   }
@@ -162,7 +184,7 @@ static Node *exprStmt(Token **rest, Token *tok) {
     *rest = tok->next;
     return newNode(ND_BLOCK);
   }
-  
+
   Node *node = newUnary(ND_EXPR_STMT, expr(&tok, tok));
   *rest = skip(tok, ";");
   return node;

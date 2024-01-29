@@ -199,7 +199,7 @@ Token *tokenize(char *p) {
       continue;
     }
 
-    // 解析标记符
+    // 解析标记符或关键字
     if (isIdent1(*p)) {
       char *start = p;
       do {
