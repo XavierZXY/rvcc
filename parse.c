@@ -97,7 +97,7 @@ static Node *compoundStmt(Token **rest, Token *tok);
 // 语句解析
 static Node *stmt(Token **rest, Token *tok);
 static Node *exprStmt(Token **rest, Token *tok);
-// 加减解析
+// 表达式解析
 static Node *expr(Token **rest, Token *tok);
 // 比较解析
 static Node *equality(Token **rest, Token *tok);
@@ -148,22 +148,32 @@ static Node *stmt(Token **rest, Token *tok) {
 
   // 解析for语句
   if (equal(tok, "for")) {
-      Node *node = newNode(ND_FOR);
-      tok = skip(tok->next, "(");
-      node->init = exprStmt(&tok, tok);
-      if (!equal(tok, ";")) {
-        node->cond = expr(&tok, tok);
-      }
-      tok = skip(tok, ";");
-
-      if (!equal(tok, ")")) {
-        node->inc = expr(&tok, tok);
-      }
-      tok = skip(tok, ")");
-
-      node->then = stmt(rest, tok);
-      return node;
+    Node *node = newNode(ND_FOR);
+    tok = skip(tok->next, "(");
+    node->init = exprStmt(&tok, tok);
+    if (!equal(tok, ";")) {
+      node->cond = expr(&tok, tok);
     }
+    tok = skip(tok, ";");
+
+    if (!equal(tok, ")")) {
+      node->inc = expr(&tok, tok);
+    }
+    tok = skip(tok, ")");
+
+    node->then = stmt(rest, tok);
+    return node;
+  }
+
+  // while
+  if (equal(tok, "while")) {
+    Node *node = newNode(ND_FOR);
+    tok = skip(tok->next, "(");
+    node->cond = expr(&tok, tok);
+    tok = skip(tok, ")");
+    node->then = stmt(rest, tok);
+    return node;
+  }
 
   // "{" compoundStmt
   if (equal(tok, "{")) {
