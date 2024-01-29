@@ -59,7 +59,7 @@ static void getAddr(Node *node) {
     return;
   }
 
-  error("not an value");
+  errorTok(node->tok, "not an value");
 }
 
 /**
@@ -142,7 +142,7 @@ static void genExpr(Node *node) {
     break;
   }
 
-  error("invalid expression");
+  errorTok(node->tok, "invalid expression");
 }
 
 /**
@@ -217,7 +217,7 @@ static void genStmt(Node *node) {
     break;
   }
 
-  error("invalid statement");
+  errorTok(node->tok, "invalid statement");
 }
 
 static void assignLocalVarOffset(Function *prog) {

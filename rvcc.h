@@ -70,6 +70,7 @@ typedef enum NodeKind {
 struct Node {
   NodeKind kind; // 节点种类
   Node *next;    // 下一个节点, 用于表达式语句
+  Token *tok;    // 节点对应的终结符
   Node *lhs;     // 左子节点
   Node *rhs;     // 右子节点
 
