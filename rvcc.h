@@ -58,6 +58,7 @@ typedef enum NodeKind {
   ND_LE,        // `<=`
   ND_ASSIGN,    // `=`
   ND_VAR,       // 局部变量
+  ND_BLOCK,     // { ... }，代码块
   ND_EXPR_STMT, // 表达式语句
   ND_NUM,       // 整数
   ND_RETURN,    // return
@@ -69,6 +70,7 @@ struct Node {
   Node *next;    // 下一个节点, 用于表达式语句
   Node *lhs;     // 左子节点
   Node *rhs;     // 右子节点
+  Node *body;
   Obj *var;      // 变量
   int val;       // 节点值
 };

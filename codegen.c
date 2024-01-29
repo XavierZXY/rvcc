@@ -136,6 +136,10 @@ static void genExpr(Node *node) {
  */
 static void genStmt(Node *node) {
   switch (node->kind) {
+  case ND_BLOCK:
+    for (Node *n = node->body; n; n = n->next)
+      genStmt(n);
+    return;
   case ND_RETURN:
     genExpr(node->lhs);
     printf(" j .L.return\n");

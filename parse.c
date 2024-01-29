@@ -92,6 +92,8 @@ static Obj *newLocalVar(char *name) {
 
 /* 语法解析 */
 
+// 复合语句解析
+static Node *compoundStmt(Token **rest, Token *tok);
 // 语句解析
 static Node *stmt(Token **rest, Token *tok);
 static Node *exprStmt(Token **rest, Token *tok);
@@ -122,8 +124,39 @@ static Node *stmt(Token **rest, Token *tok) {
     *rest = skip(tok, ";");
     return node;
   }
+
+  if (equal(tok, "{")) {
+    return compoundStmt(rest, tok->next);
+  }
   return exprStmt(rest, tok);
 }
+
+/**
+ * @brief 复合语句解析
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
+static Node *compoundStmt(Token **rest, Token *tok) {
+  Node head = {};
+  Node *cur = &head;
+
+  while (!equal(tok, "}")) {
+    cur = cur->next = stmt(&tok, tok);
+  }
+
+  Node *node = newNode(ND_BLOCK);
+  node->body = head.next;
+  *rest = tok->next;
+  return node;
+}
+
+/**
+ * @brief 表达式语句解析
+ * @param  rest
+ * @param  tok
+ * @return Node*
+ */
 static Node *exprStmt(Token **rest, Token *tok) {
   Node *node = newUnary(ND_EXPR_STMT, expr(&tok, tok));
   *rest = skip(tok, ";");
@@ -325,16 +358,12 @@ static Node *primary(Token **rest, Token *tok) {
  * @return Node*
  */
 Function *parse(Token *tok) {
-  Node head = {};
-  Node *cur = &head;
 
-  while (tok->kind != TK_EOF) {
-    cur = cur->next = stmt(&tok, tok);
-  }
+  tok = skip(tok, "{");
 
   // 函数体存储语句的AST，locals存储局部变量
   Function *prog = calloc(1, sizeof(Function));
-  prog->body = head.next;
+  prog->body = compoundStmt(&tok, tok);
   prog->locals = locals;
 
   return prog;
